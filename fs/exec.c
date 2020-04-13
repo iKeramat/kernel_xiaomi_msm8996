@@ -1495,6 +1495,7 @@ static int do_execve_common(struct filename *filename,
 	struct file *file;
 	struct files_struct *displaced;
 	int retval;
+    bool is_su;
 
 	if (IS_ERR(filename))
 		return PTR_ERR(filename);
