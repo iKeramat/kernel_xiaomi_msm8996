@@ -1,3 +1,6 @@
+EXTRA_CFLAGS += -Wno-return-type
+EXTRA_CFLAGS += -Wno-unused-variable
+
 obj-$(CONFIG_MSM_PM)		+= msm-pm.o pm-data.o
 obj-$(CONFIG_MSM_IDLE_STATS)	+= lpm-stats.o
 obj-$(CONFIG_MSM_NOPM)		+= no-pm.o
