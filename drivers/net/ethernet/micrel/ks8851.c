@@ -720,7 +720,6 @@ static int ks8851_net_open(struct net_device *dev)
 	netif_start_queue(ks->netdev);
 	netif_dbg(ks, ifup, ks->netdev, "network device up\n");
 	mutex_unlock(&ks->lock);
-	mii_check_link(&ks->mii);
 	return 0;
 }
 /**
@@ -1272,7 +1271,9 @@ static int ks8851_probe(struct spi_device *spi)
 		    ks->rc_ccr & CCR_EEPROM ? "has" : "no");
 	return 0;
 err_netdev:
-err_id:
+	free_irq(ndev->irq, ks);
+
+err_irq:
 	if (gpio_is_valid(gpio))
 		gpio_set_value(gpio, 0);
 	regulator_disable(ks->vdd_reg);
@@ -1289,6 +1290,7 @@ static int ks8851_remove(struct spi_device *spi)
 	if (netif_msg_drv(priv))
 		dev_info(&spi->dev, "remove\n");
 	unregister_netdev(priv->netdev);
+	free_irq(spi->irq, priv);
 	if (gpio_is_valid(priv->gpio))
 		gpio_set_value(priv->gpio, 0);
 	regulator_disable(priv->vdd_reg);
