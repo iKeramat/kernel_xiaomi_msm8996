@@ -822,15 +822,13 @@ release_out:
 	return err;
 }
 
-static int truncate_node(struct dnode_of_data *dn)
+static void truncate_node(struct dnode_of_data *dn)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(dn->inode);
 	struct node_info ni;
-	int err;
+	pgoff_t index;
 
-	err = f2fs_get_node_info(sbi, dn->nid, &ni);
-	if (err)
-		return err;
+	f2fs_get_node_info(sbi, dn->nid, &ni);
 
 	/* Deallocate node address */
 	f2fs_invalidate_blocks(sbi, ni.blk_addr);
@@ -846,21 +844,20 @@ static int truncate_node(struct dnode_of_data *dn)
 	clear_node_page_dirty(dn->node_page);
 	set_sbi_flag(sbi, SBI_IS_DIRTY);
 
+	index = dn->node_page->index;
 	f2fs_put_page(dn->node_page, 1);
 
 	invalidate_mapping_pages(NODE_MAPPING(sbi),
-			dn->node_page->index, dn->node_page->index);
+			index, index);
 
 	dn->node_page = NULL;
 	trace_f2fs_truncate_node(dn->inode, dn->nid, ni.blk_addr);
 
-	return 0;
 }
 
 static int truncate_dnode(struct dnode_of_data *dn)
 {
 	struct page *page;
-	int err;
 
 	if (dn->nid == 0)
 		return 1;
@@ -876,9 +873,7 @@ static int truncate_dnode(struct dnode_of_data *dn)
 	dn->node_page = page;
 	dn->ofs_in_node = 0;
 	f2fs_truncate_data_blocks(dn);
-	err = truncate_node(dn);
-	if (err)
-		return err;
+	truncate_node(dn);
 
 	return 1;
 }
@@ -944,9 +939,7 @@ static int truncate_nodes(struct dnode_of_data *dn, unsigned int nofs,
 	if (!ofs) {
 		/* remove current indirect node */
 		dn->node_page = page;
-		ret = truncate_node(dn);
-		if (ret)
-			goto out_err;
+		truncate_node(dn);
 		freed++;
 	} else {
 		f2fs_put_page(page, 1);
@@ -1004,9 +997,7 @@ static int truncate_partial_nodes(struct dnode_of_data *dn,
 	if (offset[idx + 1] == 0) {
 		dn->node_page = pages[idx];
 		dn->nid = nid[idx];
-		err = truncate_node(dn);
-		if (err)
-			goto fail;
+		truncate_node(dn);
 	} else {
 		f2fs_put_page(pages[idx], 1);
 	}
@@ -1127,7 +1118,6 @@ int f2fs_truncate_xattr_node(struct inode *inode)
 	nid_t nid = F2FS_I(inode)->i_xattr_nid;
 	struct dnode_of_data dn;
 	struct page *npage;
-	int err;
 
 	if (!nid)
 		return 0;
@@ -1137,11 +1127,7 @@ int f2fs_truncate_xattr_node(struct inode *inode)
 		return PTR_ERR(npage);
 
 	set_new_dnode(&dn, inode, NULL, npage, nid);
-	err = truncate_node(&dn);
-	if (err) {
-		f2fs_put_page(npage, 1);
-		return err;
-	}
+	truncate_node(&dn);
 
 	f2fs_i_xnid_write(inode, 0);
 
@@ -1182,11 +1168,7 @@ int f2fs_remove_inode_page(struct inode *inode)
 			inode->i_blocks != 0 && inode->i_blocks != 8);
 
 	/* will put inode & node pages */
-	err = truncate_node(&dn);
-	if (err) {
-		f2fs_put_dnode(&dn);
-		return err;
-	}
+	truncate_node(&dn);
 	return 0;
 }
 
